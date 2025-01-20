@@ -23,14 +23,17 @@ def main(prompt: str, n_tokens_to_generate: int = 40, model_size: str = "124M", 
     return output_txt
 
 if __name__ == "__main__":
-    a = jnp.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], jnp.int32)
-    print(a, "\n", a[jnp.arange(len(a)), [0, 2, 1]])
-    print(gelu(jnp.array([[1, 2], [-2, 0.5]])))
-    x = softmax(jnp.array([[2, 100], [-5, 0]]))
-    print(x, "\n", x.sum(axis = -1))
-    x = jnp.array([[2, 2, 3], [-5, 0, 1]])
-    x = layer_norm(x, g=jnp.ones(x.shape[-1]), b=jnp.zeros(x.shape[-1]))
-    print(x, "\n variance=", x.var(axis=-1),"\tmean=", x.mean(axis=-1))
-    pass
+    # a = jnp.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], jnp.int32)
+    # print(a, "\n", a[jnp.arange(len(a)), [0, 2, 1]])
+    # print(gelu(jnp.array([[1, 2], [-2, 0.5]])))
+    # x = softmax(jnp.array([[2, 100], [-5, 0]]))
+    # print(x, "\n", x.sum(axis = -1))
+    # x = jnp.array([[2, 2, 3], [-5, 0, 1]])
+    # x = layer_norm(x, g=jnp.ones(x.shape[-1]), b=jnp.zeros(x.shape[-1]))
+    # print(x, "\n variance=", x.var(axis=-1),"\tmean=", x.mean(axis=-1))
+    # causal_mask = (1 - jnp.tri(4, dtype=jnp.float32)) * -1e10
+    # print(softmax(causal_mask))
+    # pass
 
-    # main("Hello, what is your name")
+    out = main("Alan Turing theorized that computers would one day become", 8)
+    print(out)
