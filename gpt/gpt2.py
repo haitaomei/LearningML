@@ -1,3 +1,4 @@
+import jax
 import jax.numpy as jnp
 
 # hparams:
@@ -50,6 +51,7 @@ def transformer_block(x, mlp, attn, ln_1, ln_2, n_head):
     x = x + ffn(layer_norm(x, **ln_2), **mlp)
     return x
 
+@jax.jit
 def ffn(x, c_fc,  c_proj):
     # project up
     a = gelu(linear(x, **c_fc)) # [n_seq, n_embd] -> [n_seq, 4*n_embd]
@@ -57,7 +59,7 @@ def ffn(x, c_fc,  c_proj):
     x = linear(a, **c_proj) # [n_seq, 4*n_embd] -> [n_seq, n_embd]
     return x
 
-
+@jax.jit
 def attention(q, k, v, mask):  # [n_q, d_k], [n_k, d_k], [n_k, d_v], [n_q, n_k] -> [n_q, d_v]
     """
     def attention_without_masking(q, k, v):
@@ -67,7 +69,7 @@ def attention(q, k, v, mask):  # [n_q, d_k], [n_k, d_k], [n_k, d_v], [n_q, n_k] 
     """
     return softmax(q @ k.T / jnp.sqrt(q.shape[-1]) + mask) @ v
 
-
+@jax.jit
 def self_attention(x, c_attn, c_proj): # [n_seq, n_embd] -> [n_seq, n_embd]
     """
     When q, k, and v all come from the same source, we are performing self-attention 
@@ -132,24 +134,16 @@ def mha(x, c_attn, c_proj, n_head): # [n_seq, n_embd] -> [n_seq, n_embd]
     x = linear(x, **c_proj)  # [n_seq, n_embd] -> [n_seq, n_embd]
     return x
 
-
-def generate(inputs, params, n_head, n_tokens_to_generate):
-    from tqdm import tqdm
-
-    for _ in tqdm(range(n_tokens_to_generate), "generating"):
-        logits = gpt2(inputs, **params, n_head=n_head)
-        next_id = jnp.argmax(logits[-1])
-        inputs.append(int(next_id))
-
-    return inputs[len(inputs) - n_tokens_to_generate:]
-
+@jax.jit
 def gelu(x):
     return 0.5 * x * (1 + jnp.tanh(jnp.sqrt( 2 / jnp.pi) * (x + 0.044715 * x**3)))
 
+@jax.jit
 def softmax(x):
     exp_x = jnp.exp(x - jnp.max(x, axis = -1, keepdims = True))
     return exp_x / jnp.sum(exp_x, axis = -1, keepdims = True)
 
+@jax.jit
 def layer_norm(x, g, b, eps: float = 1e-5):
     """
     Layer normalization ensures that the inputs for each layer are always 
@@ -164,5 +158,17 @@ def layer_norm(x, g, b, eps: float = 1e-5):
     x = (x - mean) / jnp.sqrt(variance + eps)
     return g * x + b
 
+@jax.jit
 def linear(x, w, b):
     return x @ w + b
+
+
+def generate(inputs, params, n_head, n_tokens_to_generate):
+    from tqdm import tqdm
+
+    for _ in tqdm(range(n_tokens_to_generate), "generating"):
+        logits = gpt2(inputs, **params, n_head=n_head)
+        next_id = jnp.argmax(logits[-1])
+        inputs.append(int(next_id))
+
+    return inputs[len(inputs) - n_tokens_to_generate:]
