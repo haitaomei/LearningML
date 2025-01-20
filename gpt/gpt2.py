@@ -69,47 +69,47 @@ def attention(q, k, v, mask):  # [n_q, d_k], [n_k, d_k], [n_k, d_v], [n_q, n_k] 
     """
     return softmax(q @ k.T / jnp.sqrt(q.shape[-1]) + mask) @ v
 
-@jax.jit
-def self_attention(x, c_attn, c_proj): # [n_seq, n_embd] -> [n_seq, n_embd]
-    """
-    When q, k, and v all come from the same source, we are performing self-attention 
-    (i.e. letting our input sequence attend to itself)
+# @jax.jit
+# def self_attention(x, c_attn, c_proj): # [n_seq, n_embd] -> [n_seq, n_embd]
+#     """
+#     When q, k, and v all come from the same source, we are performing self-attention 
+#     (i.e. letting our input sequence attend to itself)
 
-    def self_attention_simple_version_without_linear(x, w_fc, w_proj):
-        # The following is equivalent to
-        # q = x @ w_q # [n_seq, n_embd] @ [n_embd, n_embd] -> [n_seq, n_embd]
-        # k = x @ w_k # [n_seq, n_embd] @ [n_embd, n_embd] -> [n_seq, n_embd]
-        # v = x @ w_v # [n_seq, n_embd] @ [n_embd, n_embd] -> [n_seq, n_embd]
-        x = x @ w_fc # [n_seq, n_embd] @ [n_embd, 3*n_embd] -> [n_seq, 3*n_embd]
-        q, k, v = jnp.split(x, 3, axis=-1) # [n_seq, 3*n_embd] -> 3 of [n_seq, n_embd]
+#     def self_attention_simple_version_without_linear(x, w_fc, w_proj):
+#         # The following is equivalent to
+#         # q = x @ w_q # [n_seq, n_embd] @ [n_embd, n_embd] -> [n_seq, n_embd]
+#         # k = x @ w_k # [n_seq, n_embd] @ [n_embd, n_embd] -> [n_seq, n_embd]
+#         # v = x @ w_v # [n_seq, n_embd] @ [n_embd, n_embd] -> [n_seq, n_embd]
+#         x = x @ w_fc # [n_seq, n_embd] @ [n_embd, 3*n_embd] -> [n_seq, 3*n_embd]
+#         q, k, v = jnp.split(x, 3, axis=-1) # [n_seq, 3*n_embd] -> 3 of [n_seq, n_embd]
 
-        # perform self attention
-        x = attention(q, k, v) # [n_seq, n_embd] -> [n_seq, n_embd]
+#         # perform self attention
+#         x = attention(q, k, v) # [n_seq, n_embd] -> [n_seq, n_embd]
 
-        # out projection
-        x = x @ w_proj # [n_seq, n_embd] @ [n_embd, n_embd] = [n_seq, n_embd]
+#         # out projection
+#         x = x @ w_proj # [n_seq, n_embd] @ [n_embd, n_embd] = [n_seq, n_embd]
 
-        return x
+#         return x
     
-    We also add causal by creating the mask metric for softmax
-    0 -1e10 -1e10 -1e10 -1e10
-    0   0   -1e10 -1e10 -1e10
-    0   0     0   -1e10 -1e10
-    0   0     0     0   -1e10
-    0   0     0     0     0 
-    """
-    # qkv projections, and split
-    x = linear(x, **c_attn) # [n_seq, n_embd] -> [n_seq, 3*n_embd]
-    q, k, v = jnp.split(x, 3, axis=-1) # [n_seq, 3*n_embd] -> 3 of [n_seq, n_embd]
+#     We also add causal by creating the mask metric for softmax
+#     0 -1e10 -1e10 -1e10 -1e10
+#     0   0   -1e10 -1e10 -1e10
+#     0   0     0   -1e10 -1e10
+#     0   0     0     0   -1e10
+#     0   0     0     0     0 
+#     """
+#     # qkv projections, and split
+#     x = linear(x, **c_attn) # [n_seq, n_embd] -> [n_seq, 3*n_embd]
+#     q, k, v = jnp.split(x, 3, axis=-1) # [n_seq, 3*n_embd] -> 3 of [n_seq, n_embd]
 
-    # perform self attention
-    causal_mask = (1 - jnp.tri(x.shape[0], dtype=x.dtype)) * -1e10  # [n_seq, n_seq]    
-    x = attention(q, k, v, causal_mask) # [n_seq, n_embd] -> [n_seq, n_embd]
+#     # perform self attention
+#     causal_mask = (1 - jnp.tri(x.shape[0], dtype=x.dtype)) * -1e10  # [n_seq, n_seq]    
+#     x = attention(q, k, v, causal_mask) # [n_seq, n_embd] -> [n_seq, n_embd]
 
-    # out projection
-    x = linear(x, **c_proj) # [n_seq, n_embd] @ [n_embd, n_embd] = [n_seq, n_embd]
+#     # out projection
+#     x = linear(x, **c_proj) # [n_seq, n_embd] @ [n_embd, n_embd] = [n_seq, n_embd]
 
-    return x
+#     return x
 
 def mha(x, c_attn, c_proj, n_head): # [n_seq, n_embd] -> [n_seq, n_embd]
     """
