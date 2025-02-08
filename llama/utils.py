@@ -28,8 +28,6 @@ class PositionalEncodingHelper(object):
         "original_context_length": 8192,
     }):
         assert head_dim % 2 == 0, "Embedding dimension must be even"
-
-        # Compute the inverse frequencies
         inv_freq = 1.0 / (theta_base ** (jnp.arange(0, head_dim, 2)[: (head_dim // 2)] / head_dim))
         # Frequency adjustments
         if freq_config is not None:
@@ -54,16 +52,10 @@ class PositionalEncodingHelper(object):
             inv_freq_llama = jnp.where(is_medium_freq, smoothed_inv_freq, inv_freq_llama)
             inv_freq = inv_freq_llama
 
-        # Generate position indices
         positions = jnp.arange(context_length)
+        angles = positions[:, None] * inv_freq[None, :]
+        angles = jnp.concatenate([angles, angles], 1)
 
-        # Compute the angles
-        angles = positions[:, None] * inv_freq[None, :]  # Shape: (context_length, head_dim // 2)
-
-        # Expand angles to match the head_dim
-        angles = jnp.concatenate([angles, angles], 1)  # Shape: (context_length, head_dim)
-
-        # Precompute sine and cosine
         cos = jnp.cos(angles)
         sin = jnp.sin(angles)
 
@@ -71,19 +63,16 @@ class PositionalEncodingHelper(object):
 
     @staticmethod
     def compute_rope(x, cos, sin):
-        # x: (num_heads, seq_len, head_dim)
-        num_heads, seq_len, head_dim = x.shape
+        assert x.ndim == 3, "Input must be 3D"
+        _, seq_len, head_dim = x.shape
         assert head_dim % 2 == 0, "Head dimension must be even"
 
-        # Split x into first half and second half
-        x1 = x[..., : head_dim // 2]  # First half
-        x2 = x[..., head_dim // 2 :]  # Second half
+        x1 = x[..., : head_dim // 2]
+        x2 = x[..., head_dim // 2 :]
 
-        # Adjust sin and cos shapes
         cos = jnp.expand_dims(cos[:seq_len, :], axis=0)
         sin = jnp.expand_dims(sin[:seq_len, :], axis=0)
 
-        # Apply the rotary transformation
         rotated = jnp.concatenate((-x2, x1), axis=-1)
         x_rotated = (x * cos) + (rotated * sin)
 
