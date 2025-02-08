@@ -29,6 +29,14 @@ if __name__ == "__main__":
     out = inference(input_texts, 13)
     print(out)
 
+    # # split <> reshape
+    # import numpy as np
+    # x = np.arange(48).reshape(2, 3, 8)
+    # a = jnp.array(np.split(x, 2, axis=-1))
+    # b = x.reshape(2, 3, 2, 4)
+    # b = b.transpose((2, 0, 1, 3))
+    # print(jnp.equal(a, b).all())
+
     # import numpy as np
     # a = np.array([[1, 2], [3, 4]])
     # b = np.array([[5, 6]])
