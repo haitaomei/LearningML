@@ -2,7 +2,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from utils import Parameters, PositionalEncodingHelper
+from utils import Masks, Parameters, PositionalEncodingHelper
 
 dim = 2048
 n_heads = 32
@@ -25,7 +25,7 @@ def generate(input_ids, n_layers = 16):
     logit = linear(x, linear_out_weight)
     return logit
 
-def transformer_block(x, l, ):
+def transformer_block(x, l):
     rms_w1 = Parameters.params[f"model.layers.{l}.input_layernorm.weight"]
     rms_w2 = Parameters.params[f"model.layers.{l}.post_attention_layernorm.weight"]
     gate_proj = Parameters.params[f"model.layers.{l}.mlp.gate_proj.weight"].T
@@ -48,6 +48,15 @@ def transformer_block(x, l, ):
 
     return x
 
+@jax.jit
+def attention(q, k, v, mask = None):
+    attn_scores = q @ k.transpose(0, 2, 1) # [n_heads, n_seq, n_seq]
+    if mask is not None:
+        attn_scores = attn_scores + mask[None, :, :]
+    attn_scores = softmax(attn_scores / k.shape[-1]**0.5)
+
+    return linear(attn_scores, v)
+
 def grouped_query_attention(x, dim, n_heads, n_kv_heads, context_length,
             q, k, v, o, 
             rope_base=10_000,
@@ -60,45 +69,24 @@ def grouped_query_attention(x, dim, n_heads, n_kv_heads, context_length,
     n_seq = x.shape[0]
     assert x.shape[1] == dim
 
-    cos, sin = PositionalEncodingHelper.precompute_rope_params(head_dim, rope_base, context_length, rope_config)
-    xq = linear(x, q) # [n_seq, dim]
-    xk = linear(x, k) # [n_seq, dim / n_repeat]
-    xv = linear(x, v) # [n_seq, dim / n_repeat]
+    q = linear(x, q) # [n_seq, dim]
+    k = linear(x, k) # [n_seq, dim / n_repeat]
+    v = linear(x, v) # [n_seq, dim / n_repeat]
 
-    xq = xq.reshape(n_seq, n_heads, head_dim)
-    xk = xk.reshape(n_seq, n_kv_heads, head_dim)
-    xv = xv.reshape(n_seq, n_kv_heads, head_dim)
+    q = q.reshape(n_seq, n_heads, head_dim).transpose(1, 0, 2) # [n_heads, n_seq, head_dim]
+    k = k.reshape(n_seq, n_kv_heads, head_dim).transpose(1, 0, 2) # [n_heads, n_seq, head_dim]
+    v = v.reshape(n_seq, n_kv_heads, head_dim).transpose(1, 0, 2) # [n_heads, n_seq, head_dim]
     
-    xq = xq.transpose(1, 0, 2) # [n_heads, n_seq, head_dim]
-    xk = xk.transpose(1, 0, 2)
-    xv = xv.transpose(1, 0, 2)
-
-    
-    xq = PositionalEncodingHelper.compute_rope(xq, cos, sin)
-    xk = PositionalEncodingHelper.compute_rope(xk, cos, sin)
-    
+    q = PositionalEncodingHelper.pos_encode(q)
+    k = PositionalEncodingHelper.pos_encode(k)    
     
     if n_repeat > 1:        
-        xk = jnp.repeat(xk, n_repeat, axis=0)
-        xv = jnp.repeat(xv, n_repeat, axis=0)
+        k = jnp.repeat(k, n_repeat, axis=0)
+        v = jnp.repeat(v, n_repeat, axis=0)
     
-    
-    mask = None
-    if n_seq > 1:
-        mask = jnp.full((n_seq, n_seq), jnp.bfloat16(-1e10)) # -1e10 similar to -inf after softmax
-        mask = jnp.triu(mask, k=1)
+    mask = Masks.create_mask(n_seq, jnp.bfloat16)
+    context = attention(q, k, v, mask).transpose(1, 0, 2).reshape(n_seq, dim)
 
- 
-    
-    attn_scores = xq @ xk.transpose(0, 2, 1) # [n_heads, n_seq, n_seq]
-    
-    if mask is not None:
-        attn_scores = attn_scores + mask[None, :, :]
-
-    attn_scores = softmax(attn_scores / xk.shape[-1]**0.5)
-
-    context = linear(attn_scores, xv).transpose(1, 0, 2) # [n_seq, n_heads, head_dim]
-    context = context.reshape(n_seq, dim)
     context = linear(context, o)
     return context
 

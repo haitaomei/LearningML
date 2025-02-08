@@ -80,11 +80,26 @@ class PositionalEncodingHelper(object):
     
     @staticmethod
     def pos_encode(x):
-        head_dim = x.shape[-1]
-        cos, sin = PositionalEncodingHelper.precompute_rope_params(head_dim)
+        head_dim = x.shape[-1]        
         if head_dim not in PositionalEncodingHelper.cache:
+            cos, sin = PositionalEncodingHelper.precompute_rope_params(head_dim)
             PositionalEncodingHelper.cache[head_dim] = [cos, sin]
         
         cos, sin = PositionalEncodingHelper.cache[head_dim]
 
         return PositionalEncodingHelper.compute_rope(x, cos, sin)
+
+class Masks(object):
+    masks = {}
+    @staticmethod
+    def create_mask(n_seq, dtype):
+        if n_seq == 1:
+            return None
+        
+        if n_seq not in Masks.masks:
+            mask = jnp.full((n_seq, n_seq), -1e10) # -1e10 similar to -inf after softmax
+            mask = jnp.triu(mask, k=1)
+            mask = mask.astype(dtype)
+            Masks.masks[n_seq] = mask
+        
+        return Masks.masks[n_seq]

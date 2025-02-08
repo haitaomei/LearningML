@@ -27,7 +27,7 @@ def inference(prompt = "What does lion eat", n_tokens_to_generate = 40):
 def main():
     Parameters.load_weight()
 
-    inference(prompt="What does lion eat", n_tokens_to_generate=8)
+    inference(prompt="What does lion eat", n_tokens_to_generate=20)
 
 if __name__ == "__main__":
     main()
