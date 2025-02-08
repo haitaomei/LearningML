@@ -16,6 +16,8 @@ class Parameters(object):
         # This weight is reused
         if "lm_head.weight" not in Parameters.params:
             Parameters.params["lm_head.weight"] = Parameters.params["model.embed_tokens.weight"]
+        
+        del combined_weights
 
 
 class PositionalEncodingHelper(object):
