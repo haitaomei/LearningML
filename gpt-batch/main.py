@@ -4,20 +4,36 @@ import jax.numpy as jnp
 from gpt2 import generate, gelu, softmax, layer_norm, linear
 from utils import load_encoder_hparams_and_params
 
-def inference(prompt: str, n_tokens_to_generate: int = 40, model_size: str = "124M", models_dir: str = "models"):
-    encoder, hparams, params = load_encoder_hparams_and_params(model_size, models_dir)
-    input_ids = encoder.encode(prompt)
-    assert len(input_ids) + n_tokens_to_generate < hparams["n_ctx"]
-    print("input tokens:", len(input_ids))
-    output_ids = generate([input_ids], params, hparams["n_head"], n_tokens_to_generate)
-    output_txt = encoder.decode(output_ids[0])
+def inference(prompts, n_tokens_to_generate: int = 40, model_size: str = "124M", models_dir: str = "models"):
+    """
+    Make sure each prompt in prompts with the same length
+    """
+    encoder, hparams, params = load_encoder_hparams_and_params(model_size, models_dir)    
+    inputs = []
+    for prompt in prompts:
+        tokens = encoder.encode(prompt)
+        # print(len(tokens))
+        assert len(tokens) + n_tokens_to_generate < hparams["n_ctx"]
+        inputs.append(tokens)
+    
+    output_toks = generate(inputs, params, hparams["n_head"], n_tokens_to_generate)
+    outputs = []
+    for output_tok in output_toks:
+        outputs.append(encoder.decode(output_tok))
 
-    return output_txt
+    return outputs
 
 if __name__ == "__main__":
-    input_text = "To create an array filled with any specified value"
-    out = inference(input_text, 10)
+    input_texts = ["Google LLC is an American multinational corporation and technology company", 
+                   "Labrado is a dog breed that originated in",]
+    out = inference(input_texts, 13)
     print(out)
+
+    # import numpy as np
+    # a = np.array([[1, 2], [3, 4]])
+    # b = np.array([[5, 6]])
+    # print(a.shape, b.T.shape)
+    # print(np.concatenate((a, b.T), axis=1))
     
     # import numpy as np
     # x = np.arange(24).reshape(1, 3, 8)

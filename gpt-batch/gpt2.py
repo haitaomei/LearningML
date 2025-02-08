@@ -80,12 +80,12 @@ def linear(x, w, b):
 def generate(inputs, params, n_head, n_tokens_to_generate):
     from tqdm import tqdm
 
+    inputs = jnp.array(inputs)
     for _ in tqdm(range(n_tokens_to_generate), "generating"):
-        # print("inputs is ", inputs)
         logits = gpt2(inputs, **params, n_head=n_head)
-        for i in range(len(inputs)):
-            next_id = jnp.argmax(logits[i][-1])
-            # print("next token", next_id)
-            inputs[i].append(next_id.item())
-
-    return inputs
+        next_tokens = jnp.argmax(logits, axis=-1)[:,-1] # [batch]
+        next_tokens = jnp.expand_dims(next_tokens, axis=0) # [1, batch]
+        next_tokens = next_tokens.T # [batch, 1]
+        inputs = jnp.concatenate([inputs, next_tokens], axis=-1)
+    
+    return inputs.tolist()
