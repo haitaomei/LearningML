@@ -4,3 +4,6 @@ models/
 */__pycache__/
 */models/*
 */Llama-3.2-1B-Instruct
+*/dataset
+unet/output
+unet/*.pth
