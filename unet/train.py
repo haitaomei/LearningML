@@ -1,6 +1,7 @@
 import torch
 import torch.optim as optim
 
+from collections import defaultdict
 from torch.optim import lr_scheduler
 from unet import UNet
 from utils import get_device
@@ -34,7 +35,7 @@ def dice_loss(pred, target, smooth=1.0):
     return loss.mean()
 
 
-# loss function is inspired by https://github.com/dhruvbird/ml-notebooks
+# loss function is inspired by https://github.com/usuyama/pytorch-unet
 def loss_fn(pred, target, bce_weight=0.5):
     target = torch.cat([(target == i) for i in range(3)], dim=1)
     target = target.to(torch.float)
@@ -69,8 +70,9 @@ def train(model, num_epochs=1):
     scheduler = lr_scheduler.StepLR(optimizer, step_size=8, gamma=0.1)
 
     for epoch in range(num_epochs):
-        print("Epoch {}/{}\n{}".format(epoch + 1, num_epochs, "=" * 30))
+        print("{}\nEpoch {}/{}\n{}".format("=" * 30, epoch + 1, num_epochs, "=" * 30))
         train_dataloader, _test_dataloader = create_datasets(batch_size=4)
+        metrics = defaultdict(float)
 
         for step, batch in enumerate(train_dataloader):
             inputs, labels = batch
@@ -78,8 +80,15 @@ def train(model, num_epochs=1):
             labels = labels.to(get_device())
             loss, accuracy = train_step(model, optimizer, inputs, labels)
 
+            # update metric
+            metrics["loss"] += loss
+            metrics["accuracy"] += accuracy
             if step % _EVAL_EVERY == 0:
-                print("Step ", step, "\tloss: ", loss, "\t accuracy: ", accuracy)
+                print(
+                    "loss: {:.4f}\taccuracy: {:.4f}%".format(
+                        metrics["loss"] / (step + 1), metrics["accuracy"] / (step + 1)
+                    )
+                )
 
         scheduler.step()
         for param_group in optimizer.param_groups:
@@ -87,9 +96,8 @@ def train(model, num_epochs=1):
 
     torch.save(model.state_dict(), _CHECKPOINT_PATH)
     print("model saved")
-    return model
 
 
 if __name__ == "__main__":
     model = UNet(3).to(get_device())
-    model = train(model, num_epochs=10)
+    train(model, num_epochs=10)
