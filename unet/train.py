@@ -21,29 +21,23 @@ def accuracy_fn(logits, labels):
     return 100.0 * equal.sum().item() / logits.numel()
 
 
-def dice_loss(pred, target, smooth=1.0):
-    pred = pred.contiguous()
-    target = target.contiguous()
-
-    intersection = (pred * target).sum(dim=2).sum(dim=2)
-
-    loss = 1 - (
-        (2.0 * intersection + smooth)
-        / (pred.sum(dim=2).sum(dim=2) + target.sum(dim=2).sum(dim=2) + smooth)
-    )
+def dice_loss(logits, target, smooth=1.0):
+    # logits and targets in BCHW format
+    probabilities = torch.sigmoid(logits)
+    
+    intersection = (probabilities * target).sum(dim=(-2, -1))
+    union = probabilities.sum(dim=(-2, -1)) + target.sum(dim=(-2, -1))
+    loss = 1 - ((2.0 * intersection + smooth) / (union + smooth))
 
     return loss.mean()
 
 
-# loss function is inspired by https://github.com/usuyama/pytorch-unet
-def loss_fn(pred, target, bce_weight=0.5):
+def loss_fn(logits, target, bce_weight=0.5):
     target = torch.cat([(target == i) for i in range(3)], dim=1)
     target = target.to(torch.float)
 
-    bce = torch.nn.functional.binary_cross_entropy_with_logits(pred, target)
-
-    pred = torch.sigmoid(pred)
-    dice = dice_loss(pred, target)
+    bce = torch.nn.functional.binary_cross_entropy_with_logits(logits, target)
+    dice = dice_loss(logits, target)
 
     loss = bce * bce_weight + dice * (1 - bce_weight)
 

@@ -27,11 +27,13 @@ def inspect_data():
 
 
 def test_loss_fn():
-    x = torch.rand((1, 3, 1, 1), requires_grad=True)
+    x = torch.rand((1, 3, 1, 1))
     y = torch.randint(0, 3, (1, 1, 1, 1), dtype=torch.long)
 
-    x1 = x[:, 0, :, :] + 1000.0
+    x1 = torch.rand((1, 3, 1, 1))
+    x1[:, 0, :, :] += 1000.0
     y[:, :, :, :] = 0
+    print(x.shape, x1.shape, y.shape)
     assert loss_fn(x, y) > loss_fn(x1, y)
 
     x = torch.rand((2, 3, 128, 128), requires_grad=True)
