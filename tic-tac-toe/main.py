@@ -129,6 +129,7 @@ def value_iteration(states, state_values, policy):
             board = to_board(state)
             assert check_winner(board) is not None or np.all(board != 0)
         else:
+            # There might be multiple optimal actions, but we just pick one of them
             best_action_index = np.argmax(values)
             policy[state] = [actions[best_action_index]]
 
@@ -148,20 +149,24 @@ def main():
     for _key, value_list in policy.items():
         total_actions += len(value_list)
     print(f"Total actions after value iteration: {total_actions}")
-    # demo_game(state_values, [(1, 1), (1, 0), (0, 1), (2, 1), (0, 2), (2, 0)])
-    # demo_game(state_values, [(1,1),(2,1),(1,0),(1,2),(0,0),(2,2),(2,0),])
-    # demo_game(state_values, [(2, 1), (1, 2), (1, 1), (0, 1), (2, 0), (0, 2)])
+    # demo_game(state_values, policy, [(1, 1), (1, 0), (0, 1), (2, 1), (0, 2), (2, 0)])
+    # demo_game(state_values, policy, [(1,1),(2,1),(1,0),(1,2),(0,0),(2,2),(2,0),])
+    demo_game(state_values, policy, [(2, 1), (1, 2), (1, 1), (0, 1), (2, 0), (0, 2)])
 
 
-def demo_game(state_values, actions):
+def demo_game(state_values, policy, actions):
     board = np.zeros((3, 3))
 
     turn = 1
     for action in actions:
+        print()
         board[action] = turn
-        turn = 2 if turn == 1 else 1
+
         print_board(board)
-        print(state_values[calculate_state(board)], "\n")
+        print(state_values[calculate_state(board)])
+        if turn == 2:  # next turn is X
+            print("Suggested next step:", policy[calculate_state(board)])
+        turn = 2 if turn == 1 else 1
 
 
 if __name__ == "__main__":
